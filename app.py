@@ -4,18 +4,39 @@ import os
 from PIL import Image,ImageTk
 from CTkMessagebox import CTkMessagebox
 
+import threading
+import time
+import csv
+import datetime
 
+import pandas as pd
+import pickle
+
+from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_server import ThreadingOSCUDPServer
+
+from library.EEG_generate_training_matrix import gen_training_matrix
 
 customtk.set_appearance_mode("dark")
 customtk.set_default_color_theme("blue")
 
 # globalVariabel
 nama=""
-jeniskelamin=""
+jenisKelamin=""
 kelas=""
 asalsekolah=""
 emosi=""
 
+namaFile='uji/uji-predict-0.csv'
+ip="0.0.0.0"
+port=5000
+tp9=0
+tp10=0
+af7=0
+af8=0
+au=0
+
+waktuRekam=5
 
 app=customtk.CTk()
 app.title("Emotion Electroencephalography Recognition")
@@ -106,6 +127,7 @@ def isidata_frame_btn_event():
     select_frame_by_name("isidata")
     
 def deteksiemosi_frame_btn_event():
+    global nama,kelas,jenisKelamin,asalsekolah
     nama=namaInput.get()
     kelas=kelasInput.get()
     jenisKelamin=jenisKelaminInput.get()
@@ -133,6 +155,151 @@ def close():
     if response=="Ya":
         app.destroy()       
         
+def mulai():
+    labelEmosi.configure(state=customtk.DISABLED)
+    btnPrediksi.configure(state=customtk.DISABLED,fg_color=('grey30','grey35'),text="Menunggu selama "+ str(waktuRekam) +" detik")
+    thread=threading.Thread(target=fungsiBacaEEG)
+    thread.start()
+    checkThread(thread)
+    
+def checkThread(thread):
+    if thread.is_alive():
+        app.after(500,lambda:checkThread(thread))
+    else:
+        btnPrediksi.configure(state=customtk.NORMAL,text="Prediksi Emosi",fg_color=("#4387d6","#2e7ad1"))        
+
+def fungsiBacaEEG():
+    global listJoin
+    listJoin=[]
+    dispatcher=Dispatcher()
+    dispatcher.map("/muse/eeg",eeg_handler)
+    
+    global server
+    server=ThreadingOSCUDPServer((ip,port),dispatcher)
+    print("Listening on UDP port "+str(port))
+    
+    threading.Thread(target=startServer).start()
+    threading.Thread(target=writeCSV).start()
+    time.sleep(waktuRekam)
+    threading.Thread(target=stopServer).start()
+    print("selesai rekam")
+    try:
+        print("Membuat Dataset")
+        buatDataset()
+        print("buat dataset berhasil")
+        prediksi()
+        print("prediksi berhasil")
+    except:
+        CTkMessagebox(title="Informasi", message="Terjadi Kesalahan, Silahkan Coba Lagi",icon="info")
+       
+    
+def startServer():
+    server.serve_forever(poll_interval=0.5)
+
+def stopServer():
+    server.shutdown()
+    server.server_close()
+    
+def eeg_handler( address, *args):
+    data=[]
+    global tp9,tp10,af7,af8,au
+    tp9,af7,af8,tp10,au=args
+    
+    timeStamps=time.time()
+    data=list(args)
+    data.insert(0,timeStamps)
+    listJoin.append(data)
+    
+def writeCSV():
+    fieldnames=["timestamps","tp9","af7","af8","tp10","right aux"]
+    start=time.time()
+    
+    with open(namaFile,'w',newline='')as csvFile:
+        csvWriter=csv.DictWriter(csvFile,fieldnames=fieldnames)
+        csvWriter.writeheader()
+    
+    while True:
+        # print(tp9,' ',af7,' ',af8,' ',tp10)
+        if tp9!=0 and tp10!=0 and af7!=0 and af8!=0:
+            
+            with open(namaFile,'a',newline='') as csvFile:
+                str_waktu=time.time()
+                csvWriter=csv.DictWriter(csvFile,fieldnames=fieldnames)
+                info={
+                    "timestamps":str_waktu,
+                    "tp9":tp9,
+                    "af7":af7,
+                    "af8":af8,
+                    "tp10":tp10,
+                    "right aux":au
+                }
+                
+                csvWriter.writerow(info)
+            time.sleep(0.0001)
+            elapse=str_waktu-start
+            print(elapse)
+            if (elapse>=waktuRekam):
+                break
+
+def buatDataset():
+    inputDirectory='uji/'
+    outputFile='test.csv'
+    gen_training_matrix(inputDirectory,outputFile,cols_to_ignore=-1)
+
+def prediksi():
+    modelName='modelGB1.sav'
+    dataset=pd.read_csv('test.csv')
+    dataset=dataset.dropna()
+    header=dataset.columns[[54,659,657,66,358,478,2,870,526,145,138,90,558,590,147,142,124,918,62,643,141,55,359,650,723,436,525,427,102,645,871,732,917,286,498,542,428,63,360,873,284,543,648,65,0,1,355,562,39,429,262,133,550,97,332,538,844,729,605,136,945,131,425,798,53,216,46,641,91,730,868,726,477,794,285,128,215,553,10,731,353,773,865,292,856,489,283,348,220,134,61,533,139,214,279,135,127,640,265,426,610,932,411,14,606,867,534,218,208,602,561,552,129,654,171,554,45,611,653,89,524,494,551,859,805,37,405,854,876,589,476,639,701,845,490,263,270,591,651,608,935,724,125,9,777,921,636,267,50,722,100,497,101,711,779,356,939,846,778,60,361,725,527,599,272,714,720,213,790,700,864,51,793,863,277,785,132,866,556,948,872,559,848,219,362,541,333,780,563,352,597,707,281,188,644,357,784,335,717,288,204,774,52,287,424,266,800,781,334,922,734,947,38,719,721,874,423,340,772,144,434,637,652,98,944,194,539,776,668,795,797,796,716,140,861,103,860,607,337,609,665,260,926,646,3,775,788,638,211,363,555,143,433,940,146,88]]
+    
+    X=dataset[header]
+    
+    loadModel=pickle.load(open(modelName,'rb'))
+    prediksi=loadModel.predict(X)
+    print(prediksi)
+    
+    anger=0
+    joy=0
+    sad=0
+    fear=0
+    
+    for emosi in prediksi:
+        if emosi == 'anger':
+            anger +=1
+        elif emosi == 'joy':
+            joy +=1
+        elif emosi =='sad':
+            sad +=1
+        elif emosi =='fear':
+            fear +=1
+            
+    data={'anger':anger,'joy':joy,'sad':sad,'fear':fear}
+    ser=pd.Series(data=data,index=['anger','joy','sad','fear'])
+
+    print(ser)
+    # kesimpulan
+    emosiKesimpulan=ser.idxmax()        
+    print(emosiKesimpulan)
+    
+    if emosiKesimpulan=='anger':
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"anger.png")),size=(150,150))
+    elif emosiKesimpulan=='joy':
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"joy.png")),size=(150,150))
+    elif emosiKesimpulan=='sad':
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"sad.png")),size=(150,150))
+    elif emosiKesimpulan=='fear':
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"fear.png")),size=(150,150))
+        
+    global labelEmosi
+    labelEmosi=customtk.CTkLabel(tesEmosi_frame,image=emosi_image)
+    labelEmosi.grid(row=4,column=0,pady=10)
+    simpanDataCSV(emosiKesimpulan)
+    
+def simpanDataCSV(emosi):
+    with open('dataemosi.csv','a',newline='')as f:
+        writer=csv.writer(f,lineterminator='\n')
+        data=[datetime.datetime.now(),nama,jenisKelamin,kelas,asalsekolah,emosi]
+        writer.writerow(data)
 
 
 # navigation_frame
@@ -348,7 +515,7 @@ idLabel.grid(row=0,column=0,columnspan=2,pady=20,padx=30,sticky="ew")
 
 namaLabel=customtk.CTkLabel(isiData_frame,text="Nama Siswa :",font=customtk.CTkFont(size=15,weight='normal'))
 namaLabel.grid(row=1,column=0,pady=10,padx=30,sticky="e")
-namaInput=customtk.CTkEntry(isiData_frame,placeholder_text="",width=200)
+namaInput=customtk.CTkEntry(isiData_frame,placeholder_text="cth. Budi Syahputra",width=200)
 namaInput.grid(row=1,column=1,pady=10,padx=0,sticky="w")
 
 jenisKelaminLabel=customtk.CTkLabel(isiData_frame,text="Jenis Kelamin:",font=customtk.CTkFont(size=15,weight='normal'))
@@ -358,12 +525,12 @@ jenisKelaminInput.grid(row=2,column=1,pady=10,padx=0,sticky="w")
 
 kelasLabel=customtk.CTkLabel(isiData_frame,text="Kelas:",font=customtk.CTkFont(size=15,weight='normal'))
 kelasLabel.grid(row=3,column=0,pady=10,padx=30,sticky="e")
-kelasInput=customtk.CTkEntry(isiData_frame,placeholder_text="", width=200)
+kelasInput=customtk.CTkEntry(isiData_frame,placeholder_text="cth. X RPL 1", width=200)
 kelasInput.grid(row=3,column=1,pady=10,padx=0,sticky="w")
 
 sekolahLabel=customtk.CTkLabel(isiData_frame,text="Asal Sekolah:",font=customtk.CTkFont(size=15,weight='normal'))
 sekolahLabel.grid(row=4,column=0,pady=10,padx=30,sticky="e")
-sekolahInput=customtk.CTkEntry(isiData_frame,placeholder_text="",width=200)
+sekolahInput=customtk.CTkEntry(isiData_frame,placeholder_text="cth. SMKN 1 Karang Baru",width=200)
 sekolahInput.grid(row=4,column=1,pady=10,padx=0,sticky="w")
 
 
@@ -383,9 +550,11 @@ labelPetunjuk1.grid(row=1,column=0,padx=(30,0),pady=20,sticky="w")
 labelPetunjuk2=customtk.CTkLabel(tesEmosi_frame,text="2.Mohon jangan terlalu banyak menggerakkan kepala, karena akan mengganggu sinyal yang direkam.",font=customtk.CTkFont(size=15,weight='normal'))
 labelPetunjuk2.grid(row=2,column=0,padx=(30,0),pady=(0,10),sticky="w")
 
-btnPrediksi= customtk.CTkButton(tesEmosi_frame, text="Prediksi Emosi", compound="right",corner_radius=0,width=100,command=deteksiemosi_frame_btn_event)
+btnPrediksi= customtk.CTkButton(tesEmosi_frame, text="Prediksi Emosi", compound="right",corner_radius=0,width=100,command=mulai)
 btnPrediksi.grid(row=3,column=0,padx=0,pady=30)
-btnPrediksi.configure(state=customtk.DISABLED,fg_color=('grey30','grey35'))
+
+labelEmosi=customtk.CTkLabel(tesEmosi_frame,text="")
+
 #frameAbout
 about_frame=customtk.CTkFrame(app,corner_radius=0,fg_color="transparent")
 about_frame.grid_columnconfigure(0,weight=1)
@@ -394,7 +563,7 @@ about_frame.grid_columnconfigure(1,weight=1)
 alabel=customtk.CTkLabel(about_frame,text="Tentang Aplikasi",font=customtk.CTkFont(size=20,weight='bold'))
 alabel.grid(row=0,column=0,pady=20,padx=30,sticky="ew",columnspan=2)
 
-abparagraph=customtk.CTkLabel(about_frame,text="Aplikasi Electroencephalography Emotion Recognition (EER) adalah aplikasi yang dikembangkan untuk mengenali\nemosi pada peserta didik berdasarkan gelombang Elektro Ensefalografi (EEG) yang diterima oleh perangkat untuk\ndinalisa dan diklasifikasikan kedalam salah satu dari 4 emosi dasar manusia. Proses pengenalan emosi ini memer-\nlukan 3 buah perangkat keras, yaitu Muse 2 Headband sebagai perangkat EEG, Smartphone sebagai media transmisi \ndata dan Laptop/Komputer untuk menjalankan aplikasi EER. Aplikasi EER menerapkan Machine Learning dengan \nAlgoritma Gradient Boosting Classifier. Skor akurasi dari algoritma ini mencapai 92% pada tahap training.",font=customtk.CTkFont(size=15,weight='normal'),justify="left")
+abparagraph=customtk.CTkLabel(about_frame,text="Aplikasi Electroencephalography Emotion Recognition (EER) adalah aplikasi yang dikembangkan untuk mengenali\nemosi pada peserta didik berdasarkan gelombang Elektro Ensefalografi (EEG) yang diterima oleh perangkat untuk\ndinalisa dan diklasifikasikan kedalam salah satu dari 4 emosi dasar manusia. Proses pengenalan emosi ini memer-\nlukan 3 buah perangkat keras, yaitu Muse 2 Headband sebagai perangkat EEG, Smartphone sebagai media transmisi \ndata dan Laptop/Komputer untuk menjalankan aplikasi EER. Aplikasi EER menerapkan Machine Learning dengan \nAlgoritma Gradient Boosting Classifier.",font=customtk.CTkFont(size=15,weight='normal'),justify="left")
 abparagraph.grid(row=1,column=0,pady=(10,0),padx=20,columnspan=2)
 
 lbpengembang=customtk.CTkLabel(about_frame,text="Pengembang:",font=customtk.CTkFont(size=15,weight='bold'),justify="left")

@@ -26,6 +26,10 @@ jenisKelamin=""
 kelas=""
 asalsekolah=""
 emosi=""
+strAnger=""
+strJoy=""
+strSad=""
+strFear=""
 
 namaFile='uji/uji-predict-0.csv'
 ip="0.0.0.0"
@@ -48,6 +52,9 @@ logo_small=customtk.CTkImage(Image.open(os.path.join(image_path,"eeg-icon-7.png"
 home_image=customtk.CTkImage(Image.open(os.path.join(image_path,"home_light.png")),size=(18,18))
 petunjuk_image=customtk.CTkImage(Image.open(os.path.join(image_path,"book.png")),size=(18,18))
 emotion_image=customtk.CTkImage(Image.open(os.path.join(image_path,"emotion.png")),size=(18,18))
+emotion1_image=customtk.CTkImage(Image.open(os.path.join(image_path,"emotion.png")),size=(25,25))
+next_image=customtk.CTkImage(Image.open(os.path.join(image_path,"next-icon.png")),size=(18,18))
+sine_wave_image=customtk.CTkImage(Image.open(os.path.join(image_path,"sine-wave-analysis.png")),size=(18,18))
 about_image=customtk.CTkImage(Image.open(os.path.join(image_path,"about.png")),size=(18,18))
 exit_image=customtk.CTkImage(Image.open(os.path.join(image_path,"exit.png")),size=(21,21))
 logo_image=customtk.CTkImage(Image.open(os.path.join(image_path,"eeg-icon-7.png")),size=(100,100))
@@ -199,8 +206,8 @@ def fungsiBacaEEG():
         print("buat dataset berhasil")
         prediksi()
         print("prediksi berhasil")
-    except Exception as err:
-        CTkMessagebox(title="Informasi", message="Error: "+ err +".\nTerjadi Kesalahan, Silahkan Coba Lagi",icon="info")
+    except:
+        CTkMessagebox(title="Informasi", message="Terjadi Kesalahan, Silahkan Coba Lagi",icon="info")
        
     
 def startServer():
@@ -275,6 +282,7 @@ def prediksi():
     sad=0
     fear=0
     
+    
     for emosi in prediksi:
         if emosi == 'anger':
             anger +=1
@@ -288,9 +296,18 @@ def prediksi():
     print("hitung emosi")
     lbl0.configure(text="Emosi Takut: "+str(int(fear/total*100))+" %")
     lbl1.configure(text="Emosi Sedih: "+str(int(sad/total*100))+"%")
+    
     lbl2.configure(text="Emosi Senang: "+str(int(joy/total*100))+"%")
+    
     lbl3.configure(text="Emosi Marah: "+str(int(anger/total*100))+"%")
+    
+    global strFear,strAnger,strJoy,strSad
+    strFear=str(int(fear/total*100))+" %"
+    strAnger=str(int(anger/total*100))+"%"
+    strJoy=str(int(joy/total*100))+"%"
+    strSad=str(int(sad/total*100))+"%"
     print("set text selesai")
+    
     pb0.set(fear/total)
     pb1.set(sad/total)
     pb2.set(joy/total)
@@ -323,7 +340,7 @@ def prediksi():
 def simpanDataCSV(emosi):
     with open('dataemosi.csv','a',newline='')as f:
         writer=csv.writer(f,lineterminator='\n')
-        data=[datetime.datetime.now(),nama,jenisKelamin,kelas,asalsekolah,emosi]
+        data=[datetime.datetime.now(),nama,jenisKelamin,kelas,asalsekolah,strAnger,strFear,strJoy,strSad,emosi]
         writer.writerow(data)
 
 
@@ -379,7 +396,7 @@ hfLabel1.grid(row=1,column=0,pady=10,padx=30,sticky="ew")
 hfLogoLabel=customtk.CTkLabel(home_frame,text="",image=logo_image)
 hfLogoLabel.grid(row=2,column=0,padx=30,pady=10,sticky="ew")
 
-btnMulai= customtk.CTkButton(home_frame, text="Deteksi Emosi",height=50,width=200,corner_radius=0,font=customtk.CTkFont(weight="bold",size=14),command=isidata_frame_btn_event)
+btnMulai= customtk.CTkButton(home_frame, text="Deteksi Emosi",height=50,width=200,corner_radius=0,font=customtk.CTkFont(weight="bold",size=14),command=isidata_frame_btn_event,image=emotion1_image,compound="left")
 btnMulai.grid(row=3,column=0,padx=30,pady=(30,0))
 
 btnPetunjuk2=customtk.CTkButton(home_frame,text="Butuh petunjuk penggunaan aplikasi ?",
@@ -559,7 +576,7 @@ sekolahInput=customtk.CTkEntry(isiData_frame,placeholder_text="cth. SMKN 1 Karan
 sekolahInput.grid(row=4,column=1,pady=10,padx=0,sticky="w")
 
 
-btnMulai= customtk.CTkButton(isiData_frame, text="Selanjutnya", compound="right",corner_radius=0,width=100,command=deteksiemosi_frame_btn_event)
+btnMulai= customtk.CTkButton(isiData_frame, text="Selanjutnya",image=next_image, compound="right",corner_radius=0,width=110,command=deteksiemosi_frame_btn_event)
 btnMulai.grid(row=6,column=1,sticky="w",padx=0,pady=30)
 
 
@@ -575,7 +592,7 @@ labelPetunjuk1.grid(row=1,column=0,padx=(30,0),pady=(0,5),sticky="w")
 labelPetunjuk2=customtk.CTkLabel(tesEmosi_frame,text="2.Mohon jangan terlalu banyak menggerakkan kepala, karena akan mengganggu sinyal yang direkam.",font=customtk.CTkFont(size=15,weight='normal'))
 labelPetunjuk2.grid(row=2,column=0,padx=(30,0),pady=(0,5),sticky="w")
 
-btnPrediksi= customtk.CTkButton(tesEmosi_frame, text="Prediksi Emosi", compound="right",corner_radius=0,width=100,command=mulai)
+btnPrediksi= customtk.CTkButton(tesEmosi_frame, text="Prediksi Emosi",image=sine_wave_image, compound="left",corner_radius=0,width=100,command=mulai)
 btnPrediksi.grid(row=3,column=0,padx=0,pady=(15,5))
 
 labelEmosi=customtk.CTkLabel(tesEmosi_frame,text="")

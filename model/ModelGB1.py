@@ -5,7 +5,7 @@ import pickle
 import csv
 import numpy as np
 
-    
+
 dataset=pd.read_csv('training-1.csv')
 dataset['Label']=dataset['Label'].replace([0.0,1.0,2.0,3.0],['fear','sad','joy','anger'])
 dataset=dataset.dropna()

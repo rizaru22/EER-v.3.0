@@ -54,7 +54,7 @@ petunjuk_image=customtk.CTkImage(Image.open(os.path.join(image_path,"book.png"))
 emotion_image=customtk.CTkImage(Image.open(os.path.join(image_path,"emotion.png")),size=(18,18))
 emotion1_image=customtk.CTkImage(Image.open(os.path.join(image_path,"emotion.png")),size=(25,25))
 next_image=customtk.CTkImage(Image.open(os.path.join(image_path,"next-icon.png")),size=(18,18))
-sine_wave_image=customtk.CTkImage(Image.open(os.path.join(image_path,"sine-wave-analysis.png")),size=(18,18))
+sine_wave_image=customtk.CTkImage(Image.open(os.path.join(image_path,"sine-waves-analysis.png")),size=(18,18))
 about_image=customtk.CTkImage(Image.open(os.path.join(image_path,"about.png")),size=(18,18))
 exit_image=customtk.CTkImage(Image.open(os.path.join(image_path,"exit.png")),size=(21,21))
 logo_image=customtk.CTkImage(Image.open(os.path.join(image_path,"eeg-icon-7.png")),size=(100,100))
@@ -323,13 +323,13 @@ def prediksi():
     print(emosiKesimpulan)
     
     if emosiKesimpulan=='anger':
-        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"anger.png")),size=(150,150))
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"anger.png")),size=(198,150))
     elif emosiKesimpulan=='joy':
-        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"joy.png")),size=(150,150))
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"joy.png")),size=(198,150))
     elif emosiKesimpulan=='sad':
-        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"sad.png")),size=(150,150))
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"sad.png")),size=(198,150))
     elif emosiKesimpulan=='fear':
-        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"fear.png")),size=(150,150))
+        emosi_image=customtk.CTkImage(Image.open(os.path.join(image_path,"fear.png")),size=(198,150))
         
     global labelEmosi
     labelEmosi=customtk.CTkLabel(tesEmosi_frame,image=emosi_image)
